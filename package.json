@@ -1,0 +1,17 @@
+{
+  "name": "studiomix-live",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tu propia plataforma de directos: recibe la emisión de StudioMix (RTMP/SRT) y la muestra en tu web con WebRTC, chat y contraseña opcional.",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "start": "node server/index.js",
+    "test": "node --test"
+  }
+}

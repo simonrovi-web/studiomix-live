@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Panel · StudioMix Live</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body class="admin">
+  <header class="bar">
+    <strong>StudioMix Live</strong>
+    <span id="live-badge" class="badge">SIN EMISIÓN</span>
+    <span class="grow"></span>
+    <a id="view-link" class="muted small" href="/" target="_blank" rel="noopener">Ver la página pública ↗</a>
+    <button id="btn-logout" type="button" hidden>Salir</button>
+  </header>
+
+  <!-- First run: create the admin password with the code printed by the server. -->
+  <div id="setup" class="center" hidden>
+    <form id="setup-form" class="card">
+      <h2>Configura tu panel</h2>
+      <p class="muted small">Escribe el código de activación que aparece en la consola donde arrancaste el servidor y elige tu contraseña de administrador.</p>
+      <label>Código de activación <input id="setup-code" inputmode="numeric" autocomplete="one-time-code" required></label>
+      <label>Contraseña nueva (mínimo 8 caracteres) <input id="setup-password" type="password" minlength="8" autocomplete="new-password" required></label>
+      <button class="accent" type="submit">Crear y entrar</button>
+      <span id="setup-error" class="error" role="alert"></span>
+    </form>
+  </div>
+
+  <div id="login" class="center" hidden>
+    <form id="login-form" class="card">
+      <h2>Entrar al panel</h2>
+      <label>Contraseña <input id="login-password" type="password" autocomplete="current-password" required></label>
+      <button class="accent" type="submit">Entrar</button>
+      <span id="login-error" class="error" role="alert"></span>
+    </form>
+  </div>
+
+  <main id="dashboard" hidden>
+    <div class="grid2">
+      <section class="card">
+        <h2>Estado</h2>
+        <div class="row"><div class="grow"><div id="stat-live" class="stat">—</div><span class="muted small">Emisión</span></div>
+          <div class="grow"><div id="stat-viewers" class="stat">0</div><span class="muted small">Espectadores con la página abierta</span></div></div>
+        <span id="stat-tracks" class="muted small"></span>
+      </section>
+      <section class="card">
+        <h2>Emitir desde StudioMix</h2>
+        <p class="muted small">En StudioMix: Ajustes → Destinos → añade uno con este servidor y esta clave.</p>
+        <label>Servidor</label>
+        <div class="copy"><code id="rtmp-server"></code><button type="button" data-copy="rtmp-server">Copiar</button></div>
+        <label>Clave de emisión (no la compartas)</label>
+        <div class="copy"><code id="stream-key"></code><button type="button" data-copy="stream-key">Copiar</button></div>
+        <details>
+          <summary class="muted small">Otras formas (SRT, URL completa)</summary>
+          <label>URL RTMP completa</label>
+          <div class="copy"><code id="rtmp-url"></code><button type="button" data-copy="rtmp-url">Copiar</button></div>
+          <label>SRT (menos retardo en redes con pérdidas)</label>
+          <div class="copy"><code id="srt-url"></code><button type="button" data-copy="srt-url">Copiar</button></div>
+        </details>
+        <button id="btn-regenerate" class="danger" type="button">Cambiar la clave de emisión</button>
+      </section>
+    </div>
+
+    <div class="grid2">
+      <form id="channel-form" class="card">
+        <h2>Canal</h2>
+        <label>Título <input id="ch-title" maxlength="100" required></label>
+        <label>Descripción <textarea id="ch-description" rows="4" maxlength="1000"></textarea></label>
+        <label>Dirección pública (IP o dominio; vacío = este equipo) <input id="ch-host" maxlength="253" placeholder="mi-directo.ejemplo.com"></label>
+        <div class="row"><button class="accent" type="submit">Guardar</button><span id="channel-msg" class="ok-text"></span></div>
+      </form>
+      <form id="privacy-form" class="card">
+        <h2>Acceso del público</h2>
+        <label class="check"><input id="pv-private" type="checkbox"> Directo privado: pide contraseña para verlo</label>
+        <label>Contraseña del público <input id="pv-password" type="password" autocomplete="new-password" placeholder="(sin cambios)"></label>
+        <p class="muted small">Al cambiar la contraseña, quien entró con la anterior tendrá que escribir la nueva.</p>
+        <div class="row"><button class="accent" type="submit">Guardar</button><span id="privacy-msg" class="ok-text"></span></div>
+        <span id="privacy-error" class="error" role="alert"></span>
+        <label>Enlace para el público</label>
+        <div class="copy"><code id="viewer-url"></code><button type="button" data-copy="viewer-url">Copiar</button></div>
+      </form>
+    </div>
+
+    <section class="card">
+      <div class="row"><h2 class="grow">Moderar el chat</h2><button id="btn-clear" class="danger" type="button">Vaciar el chat</button></div>
+      <ul id="mod-list" class="mod-list"></ul>
+      <span id="mod-empty" class="muted small">Sin mensajes todavía.</span>
+    </section>
+  </main>
+  <script src="/assets/admin.js"></script>
+</body>
+</html>

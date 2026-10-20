@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e1015">
+  <title>Directo</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body class="viewer">
+  <header class="bar">
+    <span id="live-badge" class="badge">SIN EMISIÓN</span>
+    <h1 id="title">Cargando…</h1>
+    <span class="grow"></span>
+    <span id="viewers" class="viewers" title="Personas viendo ahora">👁 0</span>
+  </header>
+
+  <main class="layout">
+    <section class="stage">
+      <div class="player" id="player">
+        <video id="video" playsinline autoplay muted></video>
+        <div id="offline" class="overlay">
+          <div class="overlay-box">
+            <strong>El directo empezará pronto</strong>
+            <span class="muted">Esta página se conectará sola cuando empiece.</span>
+          </div>
+        </div>
+        <div id="lock" class="overlay" hidden>
+          <form id="unlock-form" class="overlay-box">
+            <strong>🔒 Directo privado</strong>
+            <label>Contraseña <input id="unlock-password" type="password" autocomplete="current-password" required></label>
+            <button class="accent" type="submit">Entrar</button>
+            <span id="unlock-error" class="error" role="alert"></span>
+          </form>
+        </div>
+        <div class="controls">
+          <button id="btn-sound" type="button" hidden>🔊 Activar sonido</button>
+          <span class="grow"></span>
+          <button id="btn-full" type="button" title="Pantalla completa">⛶</button>
+        </div>
+      </div>
+      <p id="description" class="description"></p>
+    </section>
+
+    <aside class="chat" aria-label="Chat">
+      <h2>Chat</h2>
+      <ol id="messages" class="messages" aria-live="polite"></ol>
+      <form id="chat-form" class="chat-form">
+        <input id="nick" maxlength="24" placeholder="Tu nombre" autocomplete="nickname" aria-label="Tu nombre">
+        <div class="row">
+          <input id="text" maxlength="300" placeholder="Escribe un mensaje…" autocomplete="off" aria-label="Mensaje" required>
+          <button class="accent" type="submit">Enviar</button>
+        </div>
+        <span id="chat-error" class="error" role="alert"></span>
+      </form>
+    </aside>
+  </main>
+  <script src="/assets/viewer.js"></script>
+</body>
+</html>
