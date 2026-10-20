@@ -54,7 +54,7 @@ test('chat: bans hide past messages and block new ones; history is capped', () =
 });
 
 test('MediaMTX config: HTTP endpoints and API on localhost, auth through our hook', () => {
-  const cfg = JSON.parse(mediamtxConfig({ rtmpPort: 1935, srtPort: 8890, webrtcPort: 8189 }, { authUrl: 'http://127.0.0.1:8080/internal/mediamtx-auth', additionalHosts: ['ejemplo.com'] }));
+  const cfg = JSON.parse(mediamtxConfig({ rtmpPort: 1935, srtPort: 8890, webrtcPort: 8189 }, { authUrl: 'http://127.0.0.1:8080/internal/mediamtx-auth', additionalHosts: ['ejemplo.com'], streamKey: 'K' }));
   assert.equal(cfg.authMethod, 'http');
   assert.equal(cfg.authHTTPAddress, 'http://127.0.0.1:8080/internal/mediamtx-auth');
   for (const key of ['webrtcAddress', 'hlsAddress', 'apiAddress']) assert.match(cfg[key], /^127\.0\.0\.1:/, key);
@@ -62,4 +62,17 @@ test('MediaMTX config: HTTP endpoints and API on localhost, auth through our hoo
   assert.equal(cfg.rtsp, false);
   assert.deepEqual(cfg.webrtcAllowOrigins, []);
   assert.deepEqual(cfg.webrtcAdditionalHosts, ['ejemplo.com']);
+  assert.deepEqual(Object.keys(cfg.paths), ['live/K'], 'only the current key, no wildcard');
+});
+
+test('with FFmpeg, MediaMTX republishes the stream with Opus audio for viewers (local RTSP only)', () => {
+  const cfg = JSON.parse(mediamtxConfig({ rtmpPort: 1935, srtPort: 8890, webrtcPort: 8189 }, { authUrl: 'http://x', streamKey: 'K', ffmpeg: 'C:\\Program Files\\ffmpeg\\ffmpeg.exe' }));
+  assert.equal(cfg.rtsp, true);
+  assert.match(cfg.rtspAddress, /^127\.0\.0\.1:/);
+  assert.deepEqual(Object.keys(cfg.paths).sort(), ['live/K', 'watch/K']);
+  const cmd = cfg.paths['live/K'].runOnAvailable;
+  assert.ok(cmd.startsWith('"C:/Program Files/ffmpeg/ffmpeg.exe" '), cmd);
+  assert.match(cmd, /-c:v copy -c:a libopus/);
+  assert.match(cmd, /rtsp:\/\/127\.0\.0\.1:\d+\/live\/K .*rtsp:\/\/127\.0\.0\.1:\d+\/watch\/K$/);
+  assert.equal(cfg.paths['live/K'].runOnAvailableRestart, true);
 });

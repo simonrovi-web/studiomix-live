@@ -39,10 +39,11 @@
     const s = state;
     $('#live-badge').textContent = s.live ? 'EN DIRECTO' : 'SIN EMISIÓN';
     $('#live-badge').classList.toggle('live', s.live);
-    $('#stat-live').textContent = s.live ? 'En directo' : 'Sin señal';
+    $('#stat-live').textContent = s.live ? 'En directo' : s.stats.receiving ? 'Preparando…' : 'Sin señal';
     $('#stat-live').style.color = s.live ? 'var(--live)' : '';
     $('#stat-viewers').textContent = s.viewers;
     $('#stat-tracks').textContent = s.live && s.stats.tracks?.length ? `Recibiendo: ${s.stats.tracks.join(', ')} · ${s.stats.readers} reproductores conectados` : '';
+    $('#audio-warning').hidden = s.audio !== 'none';
     $('#rtmp-server').textContent = s.ingest.rtmpServer;
     $('#stream-key').textContent = s.streamKey;
     $('#rtmp-url').textContent = s.ingest.rtmpUrl;

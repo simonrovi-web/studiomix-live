@@ -4,9 +4,9 @@ Tu propia plataforma de directos. Emites desde StudioMix (o OBS) y tu público
 te ve en tu página web, con chat, contador de espectadores y, si quieres,
 contraseña. Sin YouTube ni Twitch de por medio.
 
-- **Poco retardo:** vídeo por WebRTC, en torno a **1 s** desde que cortas en
-  StudioMix hasta la página del público (medido en red local; por internet
-  depende de la conexión).
+- **Poco retardo:** vídeo por WebRTC, unos **1,2–1,3 s** desde que cortas en
+  StudioMix hasta la página del público, con sonido (medido en red local; por
+  internet depende de la conexión).
 - **Chat** con moderación: borrar mensajes, bloquear a alguien, vaciar el chat.
 - **Público o privado:** activa una contraseña cuando quieras; al cambiarla,
   quien entró con la anterior tiene que escribir la nueva.
@@ -18,6 +18,13 @@ contraseña. Sin YouTube ni Twitch de por medio.
 Funciona con [MediaMTX](https://github.com/bluenviron/mediamtx) (licencia MIT),
 que recibe la emisión y la reparte. Se descarga de sus releases oficiales al
 instalar y se comprueba su suma SHA-256.
+
+**Sonido:** StudioMix y OBS envían el audio en AAC, pero los navegadores solo
+reproducen Opus por WebRTC. El servidor convierte únicamente el audio con
+**FFmpeg** (el vídeo se copia tal cual, así que apenas usa CPU). Busca FFmpeg en
+`ffmpegPath` de `data/config.json`, en la variable `FFMPEG_PATH`, en el `PATH`
+o junto a StudioMix (`../studiomix`). Sin FFmpeg el público ve el vídeo sin
+sonido y el panel lo avisa.
 
 ## Probarlo en tu equipo
 
@@ -43,7 +50,8 @@ en redes privadas para que otros equipos de tu red puedan verte.
 
 Para que te vea cualquiera, instálalo en un servidor (VPS) con Linux:
 
-1. `git clone` este repositorio, `node scripts/setup.mjs` y arráncalo como
+1. Instala Node.js 20+ y FFmpeg (`sudo apt install ffmpeg` en Debian/Ubuntu),
+   `git clone` este repositorio, `node scripts/setup.mjs` y arráncalo como
    servicio (por ejemplo con systemd: `ExecStart=/usr/bin/node server/index.js`).
 2. Abre en el cortafuegos del servidor:
    - **TCP 1935** (RTMP, para StudioMix) y **UDP 8890** (SRT, opcional).
@@ -83,6 +91,7 @@ node server/index.js # arrancar
 - `server/index.js`: rutas HTTP, proxy WHEP hacia MediaMTX, panel y la
   autorización que MediaMTX consulta para cada emisión o reproducción.
 - `server/mediamtx.js`: genera la configuración de MediaMTX y lo mantiene vivo.
+- `server/ffmpeg.js`: busca FFmpeg y prepara la copia con audio Opus para el público.
 - `server/chat.js`: chat y estado en vivo por Server-Sent Events.
 - `server/config.js`, `server/sessions.js`: ajustes, contraseñas y cookies firmadas.
 - `web/`: página del público (`index.html`) y panel (`admin.html`).

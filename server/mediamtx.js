@@ -9,10 +9,21 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 
-const MEDIAMTX_HTTP = { webrtc: 18889, hls: 18888, api: 19997 };
+const { opusCommand } = require('./ffmpeg');
 
-/** MediaMTX YAML (JSON is valid YAML, which keeps quoting simple). */
-function mediamtxConfig(cfg, { authUrl, additionalHosts = [] }) {
+const MEDIAMTX_HTTP = { webrtc: 18889, hls: 18888, api: 19997, rtsp: 18554 };
+
+/**
+ * MediaMTX YAML (JSON is valid YAML, which keeps quoting simple). The
+ * publisher sends to live/<key>; with FFmpeg, viewers watch watch/<key>, the
+ * same video with Opus audio; without it they watch live/<key> (no sound).
+ */
+function mediamtxConfig(cfg, { authUrl, additionalHosts = [], streamKey, ffmpeg = null }) {
+  const live = `live/${streamKey}`;
+  const watch = `watch/${streamKey}`;
+  const paths = ffmpeg
+    ? { [live]: { runOnAvailable: opusCommand(ffmpeg, MEDIAMTX_HTTP.rtsp, live, watch), runOnAvailableRestart: true }, [watch]: {} }
+    : { [live]: {} };
   const config = {
     logLevel: 'info',
     logDestinations: ['stdout'],
@@ -27,7 +38,10 @@ function mediamtxConfig(cfg, { authUrl, additionalHosts = [] }) {
     metrics: false,
     pprof: false,
     playback: false,
-    rtsp: false,
+    // Local only: FFmpeg reads and republishes through it for the Opus audio.
+    rtsp: !!ffmpeg,
+    rtspAddress: `127.0.0.1:${MEDIAMTX_HTTP.rtsp}`,
+    rtspTransports: ['tcp'],
     moq: false,
     rtmp: true,
     rtmpAddress: `:${cfg.rtmpPort}`,
@@ -46,8 +60,8 @@ function mediamtxConfig(cfg, { authUrl, additionalHosts = [] }) {
     webrtcIPsFromInterfaces: true,
     webrtcAdditionalHosts: additionalHosts,
     pathDefaults: { source: 'publisher', overridePublisher: true },
-    // Only the current key's path accepts a publisher (checked again by the hook).
-    paths: { '~^live/.+$': {} },
+    // Only the current key's paths exist (and the hook checks again).
+    paths,
   };
   return `${JSON.stringify(config, null, 2)}\n`;
 }

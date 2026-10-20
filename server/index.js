@@ -13,6 +13,7 @@ const { Config, hashPassword, verifyPassword, randomToken } = require('./config'
 const { Sessions, parseCookies, ADMIN_COOKIE } = require('./sessions');
 const { Chat } = require('./chat');
 const { MediaMTX, mediamtxConfig, MEDIAMTX_HTTP } = require('./mediamtx');
+const { findFfmpeg } = require('./ffmpeg');
 
 const ROOT = path.join(__dirname, '..');
 const WEB = path.join(ROOT, 'web');
@@ -121,9 +122,12 @@ function proxyWhep(req, res, body, upstreamPath) {
   upstream.end(body);
 }
 
-function createServer({ config, chat, sessions, mediamtx, setupCode, log = console }) {
+function createServer({ config, chat, sessions, mediamtx, setupCode, ffmpeg = null, log = console }) {
   const loginThrottle = new Throttle();
+  // StudioMix publishes here…
   const streamPath = () => `live/${config.data.streamKey}`;
+  // …and viewers watch this: the Opus-audio copy when FFmpeg is available.
+  const viewerPath = () => (ffmpeg ? `watch/${config.data.streamKey}` : streamPath());
 
   const viewerIdFor = (req) => {
     // Anonymous, per browser: lets the admin ban someone from the chat.
@@ -155,6 +159,8 @@ function createServer({ config, chat, sessions, mediamtx, setupCode, log = conso
       publicHost: config.data.publicHost,
       ports: { web: config.data.port, rtmp: config.data.rtmpPort, srt: config.data.srtPort, webrtc: config.data.webrtcPort },
       stats: chat.status,
+      // Without FFmpeg the public gets video only (browsers can't play AAC over WebRTC).
+      audio: ffmpeg ? 'opus' : 'none',
       chat: chat.history,
       banned: chat.banned.size,
     };
@@ -169,10 +175,13 @@ function createServer({ config, chat, sessions, mediamtx, setupCode, log = conso
     if (p === '/internal/mediamtx-auth' && req.method === 'POST') {
       if (!isLoopback(req)) return send(res, 403, 'Prohibido');
       const a = JSON.parse(String(await readBody(req, MAX_JSON)) || '{}');
+      const local = ['127.0.0.1', '::1'].includes(a.ip);
       const ok =
         (a.action === 'publish' && a.path === streamPath()) ||
-        // Viewers only reach MediaMTX through our proxy, which checks access first.
-        (a.action === 'read' && a.path === streamPath() && ['127.0.0.1', '::1'].includes(a.ip));
+        // The Opus copy is published by our FFmpeg on this machine.
+        (a.action === 'publish' && ffmpeg && a.path === viewerPath() && local) ||
+        // Viewers only reach MediaMTX through our proxy (and FFmpeg reads locally).
+        (a.action === 'read' && (a.path === streamPath() || a.path === viewerPath()) && local);
       if (!ok && a.action === 'publish') log.warn(`Emisión rechazada desde ${a.ip} (clave incorrecta)`);
       return send(res, ok ? 200 : 401, ok ? 'ok' : 'denegado');
     }
@@ -218,13 +227,13 @@ function createServer({ config, chat, sessions, mediamtx, setupCode, log = conso
     if (p === '/whep' && req.method === 'POST') {
       if (!sessions.canWatch(req)) return send(res, 403, 'Este directo es privado');
       const body = await readBody(req, MAX_SDP);
-      return proxyWhep(req, res, body, `/${streamPath()}/whep`);
+      return proxyWhep(req, res, body, `/${viewerPath()}/whep`);
     }
     const session = /^\/whep\/([\w-]+)$/.exec(p)?.[1];
     if (session && (req.method === 'PATCH' || req.method === 'DELETE')) {
       if (!sessions.canWatch(req)) return send(res, 403, 'Este directo es privado');
       const body = await readBody(req, MAX_SDP);
-      return proxyWhep(req, res, body, `/${streamPath()}/whep/${session}`);
+      return proxyWhep(req, res, body, `/${viewerPath()}/whep/${session}`);
     }
 
     // --- admin ---
@@ -314,7 +323,12 @@ function createServer({ config, chat, sessions, mediamtx, setupCode, log = conso
   function restartMediamtx() {
     if (!mediamtx) return;
     mediamtx.stop();
-    mediamtx.start(mediamtxConfig(config.data, { authUrl: authUrl(), additionalHosts: config.data.publicHost ? [config.data.publicHost] : [] }));
+    mediamtx.start(mediamtxConfig(config.data, {
+      authUrl: authUrl(),
+      additionalHosts: config.data.publicHost ? [config.data.publicHost] : [],
+      streamKey: config.data.streamKey,
+      ffmpeg,
+    }));
   }
 
   const authUrl = () => `http://127.0.0.1:${config.data.port}/internal/mediamtx-auth`;
@@ -326,7 +340,7 @@ function createServer({ config, chat, sessions, mediamtx, setupCode, log = conso
       else res.end();
     });
   });
-  return { server, restartMediamtx, authUrl };
+  return { server, restartMediamtx, authUrl, viewerPath };
 }
 
 function main() {
@@ -341,7 +355,10 @@ function main() {
   const mediamtx = new MediaMTX({ exe: EXE, dataDir: DATA, log });
   // One-time code shown only here: whoever sets up the panel must see this console.
   const setupCode = config.needsSetup ? String(crypto.randomInt(100000, 1000000)) : null;
-  const { server, restartMediamtx } = createServer({ config, chat, sessions, mediamtx, setupCode, log });
+  const ffmpeg = findFfmpeg(config.data.ffmpegPath, ROOT);
+  if (ffmpeg) log.info(`Audio para el público en Opus con ${ffmpeg}`);
+  else log.warn('No se encontró FFmpeg con Opus: el público verá el vídeo SIN SONIDO. Instala FFmpeg o indica "ffmpegPath" en data/config.json.');
+  const { server, restartMediamtx, viewerPath } = createServer({ config, chat, sessions, mediamtx, setupCode, ffmpeg, log });
 
   server.listen(config.data.port, () => {
     const hosts = ['localhost', ...lanAddresses()];
@@ -352,9 +369,10 @@ function main() {
 
   // Live status and stats from MediaMTX every 2 s.
   setInterval(async () => {
-    const info = await mediamtx.pathInfo(`live/${config.data.streamKey}`);
-    if (!info) return;
-    chat.setStatus({ live: info.ready, readers: info.readers, tracks: info.tracks });
+    const [source, watch] = await Promise.all([mediamtx.pathInfo(`live/${config.data.streamKey}`), mediamtx.pathInfo(viewerPath())]);
+    if (!source || !watch) return;
+    // Live for viewers once what they watch is ready (the Opus copy starts a moment later).
+    chat.setStatus({ live: watch.ready, receiving: source.ready, readers: watch.readers, tracks: source.tracks });
   }, 2000).unref();
 
   const shutdown = () => {
